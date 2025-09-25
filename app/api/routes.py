@@ -66,37 +66,8 @@ def recommend(book_ids: str = Query(..., description="추천 기준 책 ID, 콤�
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-# 키워드만 사용한 BERT 추천 (단일 책)
-@router.get("/recommend/bert-keywords")
-def recommend_bert_keywords(book_id: int = Query(...), top_k: int = Query(10, ge=1, le=50)):
-    """BERT 임베딩을 사용한 키워드 기반 추천"""
-    if bert_rec.keyword_embeddings is None:
-        raise HTTPException(
-            status_code=503,
-            detail="BERT keyword embeddings not initialized"
-        )
-    
-    if book_id not in bert_rec.book_ids:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Book with id {book_id} not found"
-        )
-    
-    items = bert_rec.recommend_by_keywords(book_id, top_k)
-    selected_book = {
-        "book_id": book_id,
-        "book_name": bert_rec.book_names.get(book_id, ""),
-        "keywords": bert_rec.book_keywords.get(book_id, "")
-    }
-    
-    return {
-        "selected_book": selected_book,
-        "recommendations": items,
-        "method": "bert_keywords"
-    }
-
-# 여러 책 기반 BERT 키워드 추천
-@router.get("/recommend/bert-keywords-multi")
+# 여러 책 기반 BERT 키워드 추천 (책 1개도 가능)
+@router.get("/recommend/bert")
 def recommend_bert_keywords_multi(book_ids: str = Query(..., description="추천 기준 책 ID, 콤마로 구분"), top_k: int = Query(10, ge=1, le=50)):
     """여러 책을 기반으로 한 BERT 키워드 추천"""
     if bert_rec.keyword_embeddings is None:
@@ -131,38 +102,8 @@ def recommend_bert_keywords_multi(book_ids: str = Query(..., description="추천
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-# 키워드 + 리뷰 결합 BERT 추천 (단일 책)
+# 여러 책 기반 BERT 키워드+리뷰 결합 추천 (책 1개도 가능)
 @router.get("/recommend/bert-combined")
-def recommend_bert_combined(book_id: int = Query(...), top_k: int = Query(10, ge=1, le=50)):
-    """BERT 임베딩을 사용한 키워드+리뷰 결합 추천"""
-    if bert_rec.combined_embeddings is None:
-        raise HTTPException(
-            status_code=503,
-            detail="BERT combined embeddings not initialized (no reviews found)"
-        )
-    
-    if book_id not in bert_rec.book_ids:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Book with id {book_id} not found"
-        )
-    
-    items = bert_rec.recommend_combined(book_id, top_k)
-    selected_book = {
-        "book_id": book_id,
-        "book_name": bert_rec.book_names.get(book_id, ""),
-        "keywords": bert_rec.book_keywords.get(book_id, ""),
-        "has_review": bool(bert_rec.book_reviews.get(book_id, ""))
-    }
-    
-    return {
-        "selected_book": selected_book,
-        "recommendations": items,
-        "method": "bert_combined"
-    }
-
-# 여러 책 기반 BERT 키워드+리뷰 결합 추천
-@router.get("/recommend/bert-combined-multi")
 def recommend_bert_combined_multi(book_ids: str = Query(..., description="추천 기준 책 ID, 콤마로 구분"), top_k: int = Query(10, ge=1, le=50)):
     """여러 책을 기반으로 한 BERT 키워드+리뷰 결합 추천"""
     if bert_rec.combined_embeddings is None:
