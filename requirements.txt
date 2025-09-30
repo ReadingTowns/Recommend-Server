@@ -5,3 +5,7 @@ pymysql
 python-dotenv
 scikit-learn
 kiwipiepy
+sentence-transformers
+torch
+numpy
+pydantic
