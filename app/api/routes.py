@@ -39,14 +39,20 @@ def healthyCheck():
     }
 
 @router.get("/recommend")
-def recommend(book_ids: str = Query(..., description="추천 기준 책 ID, 콤마로 구분")):
+def recommend(
+    book_ids: str = Query(..., description="추천 기준 책 ID, 콤마로 구분"),
+    user_keywords: str = Query("", description="사용자 취향 키워드, 콤마로 구분 (예: 로맨스,감성,힐링)")
+):
 
     try:
         # 1. Query 파라미터 문자열 → 정수 리스트
         ids = [int(x) for x in book_ids.split(",")]
+        keywords = [k.strip() for k in user_keywords.split(",") if k.strip()]
 
         # 2. 추천 결과 호출
-        recommended_books_with_scores = model.recommend_books_by_user_books(ids)
+        recommended_books_with_scores = model.recommend_books_by_user_books(
+            book_ids=ids,
+            user_preference_keywords=keywords)
 
         # 3. 결과 JSON으로 반환
         result = [
