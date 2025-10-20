@@ -3,9 +3,11 @@ from pydantic import BaseModel
 from app.recommend import model
 from app.db import fetch_books, fetch_book_reviews
 from app.recommend.bert_recommender import BertRecommender
+from app.recommend.tfidf_recommender import TfidfRecommender
 
 router = APIRouter()
 bert_rec = BertRecommender()
+tfidf_rec = TfidfRecommender()
 
 # Pydantic 모델 정의
 class TextSearchRequest(BaseModel):
@@ -13,24 +15,30 @@ class TextSearchRequest(BaseModel):
     top_k: int = 10
     use_combined: bool = True
 
-# BERT 추천기 초기화를 위한 startup 함수
-def initialize_bert():
+# BERT와 TF-IDF 추천기 초기화를 위한 startup 함수
+def initialize_recommenders():
     try:
         records = fetch_books()
-        bert_rec.build_keyword_embeddings(records)
-        
         review_records = fetch_book_reviews()
+        
+        # BERT 초기화
+        bert_rec.build_keyword_embeddings(records)
         if review_records:
             bert_rec.build_combined_embeddings(records, review_records)
             print(f"BERT embeddings built: {len(records)} books with keywords, {len(review_records)} with reviews")
         else:
             print(f"BERT embeddings built: {len(records)} books (keywords only, no reviews found)")
+        
+        # TF-IDF 초기화
+        tfidf_rec.build_tfidf_matrix(records, review_records)
+        print(f"TF-IDF matrix initialized successfully")
+        
     except Exception as e:
-        print(f"Warning: BERT recommender initialization failed: {e}")
-        print("Continuing without BERT recommender...")
+        print(f"Warning: Recommender initialization failed: {e}")
+        print("Continuing with partial functionality...")
 
 # 앱 시작 시 초기화 실행
-initialize_bert()
+initialize_recommenders()
 
 @router.get("/hc")
 def healthyCheck():
@@ -43,29 +51,35 @@ def recommend(
     book_ids: str = Query(..., description="추천 기준 책 ID, 콤마로 구분"),
     user_keywords: str = Query("", description="사용자 취향 키워드, 콤마로 구분 (예: 로맨스,감성,힐링)")
 ):
+    """TF-IDF 기반 책 추천 (미리 계산된 매트릭스 사용)"""
+    if tfidf_rec.tfidf_matrix is None:
+        raise HTTPException(
+            status_code=503,
+            detail="TF-IDF matrix not initialized"
+        )
 
     try:
         # 1. Query 파라미터 문자열 → 정수 리스트
         ids = [int(x) for x in book_ids.split(",")]
         keywords = [k.strip() for k in user_keywords.split(",") if k.strip()]
 
-        # 2. 추천 결과 호출
-        recommended_books_with_scores = model.recommend_books_by_user_books(
+        # 2. 미리 계산된 TF-IDF로 추천
+        recommended_books_with_scores = tfidf_rec.recommend_by_user_books(
             book_ids=ids,
             user_preference_keywords=keywords)
 
         # 3. 결과 JSON으로 반환
         result = [
             {
-                "book_id": b.book_id,
-                "book_name": b.book_name,
-                "author": b.author,
-                "publisher": b.publisher,
-                "keyword": b.keyword,
+                "bookId": b['book_id'],
+                "bookName": b['book_name'],
+                "author": b.get('author', ''),
+                "publisher": b.get('publisher', ''),
+                "keyword": b['keyword'],
                 "similarity": float(score),
-                "review keywords": keywords,
+                "review_keywords": review_kw,
             }
-            for b, score, keywords in recommended_books_with_scores
+            for b, score, review_kw in recommended_books_with_scores
         ]
         return {"recommendations": result}
 

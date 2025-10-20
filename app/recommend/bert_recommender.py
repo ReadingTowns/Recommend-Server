@@ -12,6 +12,8 @@ class BertRecommender:
         self.book_ids: List[int] = []
         self.book_names: Dict[int, str] = {}
         self.book_keywords: Dict[int, str] = {}
+        self.book_authors: Dict[int, str] = {}
+        self.book_publishers: Dict[int, str] = {}
         self.book_reviews: Dict[int, str] = {}
         
         # 임베딩 저장
@@ -67,12 +69,23 @@ class BertRecommender:
         except (json.JSONDecodeError, KeyError, TypeError):
             return ""
     
-    def build_keyword_embeddings(self, records: List[Tuple[int, str, str]]):
+    def build_keyword_embeddings(self, records: List[Tuple]):
         """키워드만 사용한 임베딩 구축"""
         with self._lock:
-            self.book_ids = [int(bid) for bid, _, _ in records]
-            self.book_names = {int(bid): name for bid, name, _ in records}
-            self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw in records}
+            # 튜플 형식 확인 (3개 또는 5개 요소)
+            if records and len(records[0]) == 5:
+                self.book_ids = [int(bid) for bid, _, _, _, _ in records]
+                self.book_names = {int(bid): name for bid, name, _, _, _ in records}
+                self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw, _, _ in records}
+                self.book_authors = {int(bid): author for bid, _, _, author, _ in records}
+                self.book_publishers = {int(bid): publisher for bid, _, _, _, publisher in records}
+            else:
+                # 이전 형식 호환성 (3개 요소)
+                self.book_ids = [int(bid) for bid, _, _ in records]
+                self.book_names = {int(bid): name for bid, name, _ in records}
+                self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw in records}
+                self.book_authors = {}
+                self.book_publishers = {}
             
             if len(records) == 0:
                 self.keyword_embeddings = None
@@ -96,14 +109,23 @@ class BertRecommender:
             )
             print("Keyword embedding creation completed.")
     
-    def build_combined_embeddings(self, book_records: List[Tuple[int, str, str]], 
+    def build_combined_embeddings(self, book_records: List[Tuple], 
                                  review_records: List[Tuple[int, str]]):
         """키워드 + 리뷰 결합 임베딩 구축"""
         with self._lock:
-            # 기본 정보 저장
-            self.book_ids = [int(bid) for bid, _, _ in book_records]
-            self.book_names = {int(bid): name for bid, name, _ in book_records}
-            self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw in book_records}
+            # 기본 정보 저장 - 튜플 형식 확인
+            if book_records and len(book_records[0]) == 5:
+                self.book_ids = [int(bid) for bid, _, _, _, _ in book_records]
+                self.book_names = {int(bid): name for bid, name, _, _, _ in book_records}
+                self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw, _, _ in book_records}
+                self.book_authors = {int(bid): author for bid, _, _, author, _ in book_records}
+                self.book_publishers = {int(bid): publisher for bid, _, _, _, publisher in book_records}
+            else:
+                self.book_ids = [int(bid) for bid, _, _ in book_records]
+                self.book_names = {int(bid): name for bid, name, _ in book_records}
+                self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw in book_records}
+                self.book_authors = {}
+                self.book_publishers = {}
             
             # 리뷰 정보 저장 (review_records: [(book_id, review_json)])
             review_dict = {int(bid): self.parse_reviews(review) for bid, review in review_records}
@@ -170,6 +192,8 @@ class BertRecommender:
                 results.append({
                     "book_id": bid,
                     "book_name": self.book_names.get(bid, ""),
+                    "author": self.book_authors.get(bid, ""),
+                    "publisher": self.book_publishers.get(bid, ""),
                     "keywords": self.book_keywords.get(bid, ""),
                     "similarity_score": round(score, 4),
                     "method": "keyword_only"
@@ -207,6 +231,8 @@ class BertRecommender:
                 results.append({
                     "book_id": bid,
                     "book_name": self.book_names.get(bid, ""),
+                    "author": self.book_authors.get(bid, ""),
+                    "publisher": self.book_publishers.get(bid, ""),
                     "keywords": self.book_keywords.get(bid, ""),
                     "review_preview": review_preview,
                     "similarity_score": round(score, 4),
@@ -242,6 +268,8 @@ class BertRecommender:
                 result = {
                     "book_id": bid,
                     "book_name": self.book_names.get(bid, ""),
+                    "author": self.book_authors.get(bid, ""),
+                    "publisher": self.book_publishers.get(bid, ""),
                     "keywords": self.book_keywords.get(bid, ""),
                     "similarity_score": round(score, 4),
                     "method": "text_search"
@@ -298,6 +326,8 @@ class BertRecommender:
                 results.append({
                     "book_id": bid,
                     "book_name": self.book_names.get(bid, ""),
+                    "author": self.book_authors.get(bid, ""),
+                    "publisher": self.book_publishers.get(bid, ""),
                     "keywords": self.book_keywords.get(bid, ""),
                     "similarity_score": round(score, 4),
                     "method": "keyword_multi"
@@ -350,6 +380,8 @@ class BertRecommender:
                 results.append({
                     "book_id": bid,
                     "book_name": self.book_names.get(bid, ""),
+                    "author": self.book_authors.get(bid, ""),
+                    "publisher": self.book_publishers.get(bid, ""),
                     "keywords": self.book_keywords.get(bid, ""),
                     "review_preview": review_preview,
                     "similarity_score": round(score, 4),
