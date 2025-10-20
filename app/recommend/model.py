@@ -4,8 +4,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 from app.recommend.utils import extract_top_nouns
 from app.db.database import SessionLocal
 from app.db import models
+import numpy as np
 
-def recommend_books_by_user_books(book_ids: list[int]):
+def recommend_books_by_user_books(
+        book_ids: list[int],
+        user_preference_keywords: list[str]):
 
     top_n = 10
 
@@ -28,18 +31,22 @@ def recommend_books_by_user_books(book_ids: list[int]):
 
         # 4. 사용자 취향 벡터 생성
         user_texts = [(b.keyword or "") + " " + extract_top_nouns(b.review) for b in target_books]
-        user_vecs = vectorizer.transform(user_texts)
-        import numpy as np
-        user_vec = np.asarray(user_vecs.mean(axis=0)).ravel()
+        user_book_vecs = vectorizer.transform(user_texts)
+        book_vec = np.asarray(user_book_vecs.mean(axis=0)).ravel()
+
+        if user_preference_keywords:
+            preference_text = " ".join(user_preference_keywords)
+            keyword_vec = vectorizer.transform([preference_text])
+            keyword_vec = np.asarray(keyword_vec.toarray()).ravel()
+        else:
+            keyword_vec = np.zeros_like(book_vec)
 
         # 5. 코사인 유사도 계산
-        user_vec_2d = user_vec.reshape(1, -1)
+        # 키워드 가중치 0.7, 책 소유 가중치 0.3
+        final_user_vec = (1 - 0.7) * book_vec + 0.7 * keyword_vec
+        user_vec_2d = final_user_vec.reshape(1, -1)
         sim_scores = cosine_similarity(user_vec_2d, X).flatten()
         top_indices = sim_scores.argsort()[::-1][:top_n]
-        # recommended_books = [candidate_books[i] for i in top_indices]
-        # recommended_books_with_scores = [(candidate_books[i], sim_scores[i]) for i in top_indices]
-
-        # return recommended_books_with_scores
 
         # 6. 책과 유사도 + 리뷰 키워드 반환
         keyword_top_n = 10
