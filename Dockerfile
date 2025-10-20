@@ -18,6 +18,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # pip, setuptools, wheel 업데이트
 RUN pip install --upgrade pip setuptools wheel
 
+# CPU 전용 PyTorch 설치
+RUN pip install --no-cache-dir torch==2.9.0+cpu torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# sentence-transformers 설치
+RUN pip install --no-cache-dir sentence-transformers
+
 # requirements.txt 복사 및 설치
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
