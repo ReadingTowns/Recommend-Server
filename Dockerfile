@@ -5,26 +5,22 @@ FROM python:3.13-slim
 WORKDIR /app
 
 # OS 패키지 설치 (빌드 도구 + 필수 라이브러리)
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     python3-dev \
-    cmake \ 
+    cmake \
     libffi-dev \
     libssl-dev \
     libpq-dev \
-    && apt-get clean
+    && apt-get clean  \
+    && rm -rf /var/lib/apt/lists/*
 
 # pip, setuptools, wheel 업데이트
 RUN pip install --upgrade pip setuptools wheel
 
 # requirements.txt 복사 및 설치
 COPY requirements.txt .
-
-# numpy 먼저 설치
-RUN pip install numpy
-
-# 그 외 requirements 설치
-RUN pip install -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # 앱 소스 코드 복사
 COPY . .
