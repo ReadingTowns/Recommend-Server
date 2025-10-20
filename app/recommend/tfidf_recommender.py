@@ -11,6 +11,8 @@ class TfidfRecommender:
         self.book_ids: List[int] = []
         self.book_names: Dict[int, str] = {}
         self.book_keywords: Dict[int, str] = {}
+        self.book_authors: Dict[int, str] = {}
+        self.book_publishers: Dict[int, str] = {}
         self.book_reviews: Dict[int, str] = {}
         self.corpus: List[str] = []
         
@@ -29,17 +31,25 @@ class TfidfRecommender:
                         reviews_by_book[book_id] = []
                     reviews_by_book[book_id].append(review_text)
         
-        # 책 데이터 처리 (튜플 형식: (book_id, book_name, keywords))
+        # 책 데이터 처리 (튜플 형식: (book_id, book_name, keywords, author, publisher))
         self.book_ids = []
         self.corpus = []
         
-        for book_id, book_name, keywords in records:
+        for record in records:
+            if len(record) == 5:
+                book_id, book_name, keywords, author, publisher = record
+            else:  # 이전 형식 호환성
+                book_id, book_name, keywords = record
+                author, publisher = '', ''
+            
             if not book_id:
                 continue
                 
             self.book_ids.append(book_id)
             self.book_names[book_id] = book_name or ''
             self.book_keywords[book_id] = keywords or ''
+            self.book_authors[book_id] = author or ''
+            self.book_publishers[book_id] = publisher or ''
             
             # 키워드와 리뷰 결합
             keyword_text = keywords or ''
@@ -139,8 +149,8 @@ class TfidfRecommender:
                 'book_id': book_id,
                 'book_name': self.book_names.get(book_id, ''),
                 'keyword': self.book_keywords.get(book_id, ''),
-                'author': '',  # DB에서 가져와야 하는 정보
-                'publisher': ''  # DB에서 가져와야 하는 정보
+                'author': self.book_authors.get(book_id, ''),
+                'publisher': self.book_publishers.get(book_id, '')
             }
             
             recommended_books_with_scores.append((book_info, score, review_keywords))

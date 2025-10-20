@@ -71,8 +71,8 @@ def recommend(
         # 3. 결과 JSON으로 반환
         result = [
             {
-                "book_id": b['book_id'],
-                "book_name": b['book_name'],
+                "bookId": b['book_id'],
+                "bookName": b['book_name'],
                 "author": b.get('author', ''),
                 "publisher": b.get('publisher', ''),
                 "keyword": b['keyword'],
@@ -81,7 +81,7 @@ def recommend(
             }
             for b, score, review_kw in recommended_books_with_scores
         ]
-        return {"recommendations": result, "method": "tfidf_precomputed"}
+        return {"recommendations": result}
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))

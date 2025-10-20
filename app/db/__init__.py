@@ -14,15 +14,15 @@ engine = create_engine(DATABASE_URL, pool_pre_ping=True, future=True)
 
 def fetch_books():
     """
-    books 테이블에서 (book_id, book_name, keywords)를 읽어온다.
+    books 테이블에서 (book_id, book_name, keywords, author, publisher)를 읽어온다.
     컬럼명이 환경마다 다를 수 있어 몇 가지 후보를 시도한다.
     keywords 컬럼은 NULL 가능.
     """
     candidates = [
-        "SELECT id AS book_id, book_name, keywords FROM books",
-        "SELECT book_id, book_name, keywords FROM books",
-        "SELECT id AS book_id, book_name, keyword AS keywords FROM books",
-        "SELECT book_id, book_name, keyword AS keywords FROM books",
+        "SELECT id AS book_id, book_name, keywords, author, publisher FROM books",
+        "SELECT book_id, book_name, keywords, author, publisher FROM books",
+        "SELECT id AS book_id, book_name, keyword AS keywords, author, publisher FROM books",
+        "SELECT book_id, book_name, keyword AS keywords, author, publisher FROM books",
     ]
 
     with engine.begin() as conn:
@@ -30,7 +30,8 @@ def fetch_books():
         for sql in candidates:
             try:
                 rows = conn.execute(text(sql)).mappings().all()
-                return [(int(r["book_id"]), r["book_name"], r["keywords"]) for r in rows]
+                return [(int(r["book_id"]), r["book_name"], r["keywords"], 
+                        r.get("author", ""), r.get("publisher", "")) for r in rows]
             except Exception as e:
                 last_err = e
                 continue
