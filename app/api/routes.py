@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Query, HTTPException
 from pydantic import BaseModel
 from app.recommend import model
+from app.recommend import user_recommender
 from app.db import fetch_books, fetch_book_reviews
 from app.recommend.bert_recommender import BertRecommender
 from app.recommend.tfidf_recommender import TfidfRecommender
@@ -180,3 +181,45 @@ def search_bert(request: TextSearchRequest):
         "results": items,
         "method": "bert_combined" if request.use_combined else "bert_keywords"
     }
+
+# 사용자 추천 API - 키워드만 사용
+@router.get("/recommend/users/keywords")
+def recommend_users_keywords(
+    member_id: int = Query(..., description="추천 대상 멤버 ID"),
+    top_k: int = Query(10, ge=1, le=50, description="추천할 사용자 수")
+):
+    """
+    사용자가 선택한 키워드만을 기반으로 유사한 사용자 추천
+    """
+    try:
+        recommendations = user_recommender.recommend_users_by_keywords(member_id, top_k)
+        return {
+            "memberId": member_id,
+            "recommendations": recommendations,
+            "method": "USER_KEYWORDS_ONLY"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# 사용자 추천 API - 키워드 + 서재 책
+@router.get("/recommend/users/combined")
+def recommend_users_combined(
+    member_id: int = Query(..., description="추천 대상 멤버 ID"),
+    top_k: int = Query(10, ge=1, le=50, description="추천할 사용자 수")
+):
+    """
+    사용자의 키워드 + 서재 책 정보를 기반으로 유사한 사용자 추천
+    """
+    try:
+        recommendations = user_recommender.recommend_users_by_keywords_and_books(member_id, top_k)
+        return {
+            "memberId": member_id,
+            "recommendations": recommendations,
+            "method": "USER_KEYWORDS_AND_BOOKS"
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
