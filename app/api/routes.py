@@ -73,12 +73,14 @@ def recommend(
         result = [
             {
                 "bookId": b['book_id'],
+                "bookImage": b['book_image'],
                 "bookName": b['book_name'],
                 "author": b.get('author', ''),
                 "publisher": b.get('publisher', ''),
                 "keyword": b['keyword'],
                 "similarity": float(score),
                 "review_keywords": review_kw,
+                "relatedUserKeywords": b['related_user_keywords']
             }
             for b, score, review_kw in recommended_books_with_scores
         ]
