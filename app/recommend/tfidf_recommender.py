@@ -13,6 +13,7 @@ class TfidfRecommender:
         self.book_keywords: Dict[int, str] = {}
         self.book_authors: Dict[int, str] = {}
         self.book_publishers: Dict[int, str] = {}
+        self.book_images: Dict[int, str] = {}
         self.book_reviews: Dict[int, str] = {}
         self.corpus: List[str] = []
         
@@ -31,16 +32,19 @@ class TfidfRecommender:
                         reviews_by_book[book_id] = []
                     reviews_by_book[book_id].append(review_text)
         
-        # 책 데이터 처리 (튜플 형식: (book_id, book_name, keywords, author, publisher))
+        # 책 데이터 처리 (튜플 형식: (book_id, book_name, keywords, author, publisher, image))
         self.book_ids = []
         self.corpus = []
         
         for record in records:
-            if len(record) == 5:
+            if len(record) == 6:
+                book_id, book_name, keywords, author, publisher, image = record
+            elif len(record) == 5:
                 book_id, book_name, keywords, author, publisher = record
+                image = ''
             else:  # 이전 형식 호환성
                 book_id, book_name, keywords = record
-                author, publisher = '', ''
+                author, publisher, image = '', '', ''
             
             if not book_id:
                 continue
@@ -50,6 +54,7 @@ class TfidfRecommender:
             self.book_keywords[book_id] = keywords or ''
             self.book_authors[book_id] = author or ''
             self.book_publishers[book_id] = publisher or ''
+            self.book_images[book_id] = image or ''
             
             # 키워드와 리뷰 결합
             keyword_text = keywords or ''
@@ -150,7 +155,8 @@ class TfidfRecommender:
                 'book_name': self.book_names.get(book_id, ''),
                 'keyword': self.book_keywords.get(book_id, ''),
                 'author': self.book_authors.get(book_id, ''),
-                'publisher': self.book_publishers.get(book_id, '')
+                'publisher': self.book_publishers.get(book_id, ''),
+                'image': self.book_images.get(book_id, '')
             }
 
             # 추천하는 책과 관련있는 유저가 고른 키워드
@@ -159,6 +165,73 @@ class TfidfRecommender:
                 for kw in user_preference_keywords:
                     if self.book_keywords.get(book_id) and kw in self.book_keywords[book_id]:
                         related_keywords.append(kw)
+            related_keywords = related_keywords[:2]  # 최대 2개
+            book_info['related_user_keywords'] = related_keywords
+            
+            recommended_books_with_scores.append((book_info, score, review_keywords))
+        
+        return recommended_books_with_scores
+    
+    def recommend_by_keywords_only(
+        self,
+        user_preference_keywords: List[str],
+        top_n: int = 10
+    ) -> List[Tuple]:
+        """키워드만으로 책 추천 (책 ID 없이)"""
+        
+        if self.tfidf_matrix is None:
+            raise ValueError("TF-IDF matrix not initialized")
+        
+        if not user_preference_keywords:
+            raise ValueError("At least one keyword is required")
+        
+        # 키워드 텍스트로 벡터 생성
+        preference_text = " ".join(user_preference_keywords)
+        keyword_vec = self.vectorizer.transform([preference_text])
+        
+        # 모든 책과의 코사인 유사도 계산
+        sim_scores = cosine_similarity(keyword_vec, self.tfidf_matrix).flatten()
+        
+        # 상위 N개 선택
+        top_indices = sim_scores.argsort()[::-1][:top_n]
+        
+        # 결과 생성
+        keyword_top_n = 10
+        recommended_books_with_scores = []
+        
+        for idx in top_indices:
+            if sim_scores[idx] < 0.01:  # 최소 유사도 임계값
+                continue
+                
+            book_id = self.book_ids[idx]
+            score = sim_scores[idx]
+            
+            # 리뷰 키워드 추출
+            review_text = self.book_reviews.get(book_id, '')
+            if review_text:
+                review_keywords = extract_top_nouns(review_text)
+                if isinstance(review_keywords, str):
+                    review_keywords = review_keywords.split()[:keyword_top_n]
+                else:
+                    review_keywords = review_keywords[:keyword_top_n]
+            else:
+                review_keywords = []
+            
+            # 책 정보를 딕셔너리로 반환
+            book_info = {
+                'book_id': book_id,
+                'book_name': self.book_names.get(book_id, ''),
+                'keyword': self.book_keywords.get(book_id, ''),
+                'author': self.book_authors.get(book_id, ''),
+                'publisher': self.book_publishers.get(book_id, ''),
+                'image': self.book_images.get(book_id, '')
+            }
+
+            # 추천하는 책과 관련있는 유저가 고른 키워드
+            related_keywords = []
+            for kw in user_preference_keywords:
+                if self.book_keywords.get(book_id) and kw in self.book_keywords[book_id]:
+                    related_keywords.append(kw)
             related_keywords = related_keywords[:2]  # 최대 2개
             book_info['related_user_keywords'] = related_keywords
             
