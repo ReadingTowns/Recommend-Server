@@ -50,7 +50,7 @@ def healthyCheck():
 
 @router.get("/recommend")
 def recommend(
-    book_ids: str = Query(..., description="추천 기준 책 ID, 콤마로 구분"),
+    book_ids: str = Query(None, description="추천 기준 책 ID, 콤마로 구분"),
     user_keywords: str = Query("", description="사용자 취향 키워드, 콤마로 구분 (예: 로맨스,감성,힐링)")
 ):
     """TF-IDF 기반 책 추천 (미리 계산된 매트릭스 사용)"""
@@ -62,10 +62,20 @@ def recommend(
 
     try:
         # 1. Query 파라미터 문자열 → 정수 리스트
-        ids = [int(x) for x in book_ids.split(",")]
+        ids = []
+        if book_ids:
+            ids = [int(x) for x in book_ids.split(",")]
+        
         keywords = [k.strip() for k in user_keywords.split(",") if k.strip()]
+        
+        # book_ids가 없고 keywords만 있는 경우 - 키워드 기반 추천
+        if not ids and keywords:
+            # 키워드만으로 추천
+            recommended_books_with_scores = tfidf_rec.recommend_by_keywords_only(
+                user_preference_keywords=keywords)
+            return build_recommendation_response(recommended_books_with_scores)
 
-        # 2. 미리 계산된 TF-IDF로 추천
+        # 2. 책 ID와 키워드 모두 사용한 추천
         recommended_books_with_scores = tfidf_rec.recommend_by_user_books(
             book_ids=ids,
             user_preference_keywords=keywords)
