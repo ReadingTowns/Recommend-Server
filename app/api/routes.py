@@ -5,6 +5,7 @@ from app.recommend import user_recommender
 from app.db import fetch_books, fetch_book_reviews
 from app.recommend.bert_recommender import BertRecommender
 from app.recommend.tfidf_recommender import TfidfRecommender
+from app.recommend.recommender_service import build_recommendation_response
 
 router = APIRouter()
 bert_rec = BertRecommender()
@@ -68,26 +69,12 @@ def recommend(
         recommended_books_with_scores = tfidf_rec.recommend_by_user_books(
             book_ids=ids,
             user_preference_keywords=keywords)
-
-        # 3. 결과 JSON으로 반환
-        result = [
-            {
-                "bookId": b['book_id'],
-                "bookImage": b['book_image'],
-                "bookName": b['book_name'],
-                "author": b.get('author', ''),
-                "publisher": b.get('publisher', ''),
-                "keyword": b['keyword'],
-                "similarity": float(score),
-                "review_keywords": review_kw,
-                "relatedUserKeywords": b['related_user_keywords']
-            }
-            for b, score, review_kw in recommended_books_with_scores
-        ]
-        return {"recommendations": result}
+        
+        return build_recommendation_response(recommended_books_with_scores)
 
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
+
 
 # 여러 책 기반 BERT 키워드 추천 (책 1개도 가능)
 @router.get("/recommend/bert")
