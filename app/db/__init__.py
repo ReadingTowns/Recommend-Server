@@ -19,10 +19,10 @@ def fetch_books():
     keywords 컬럼은 NULL 가능.
     """
     candidates = [
-        "SELECT id AS book_id, book_name, keywords, author, publisher FROM books",
-        "SELECT book_id, book_name, keywords, author, publisher FROM books",
-        "SELECT id AS book_id, book_name, keyword AS keywords, author, publisher FROM books",
-        "SELECT book_id, book_name, keyword AS keywords, author, publisher FROM books",
+        "SELECT id AS book_id, book_name, keywords, author, publisher, book_image AS image FROM books",
+        "SELECT book_id, book_name, keywords, author, publisher, book_image AS image FROM books",
+        "SELECT id AS book_id, book_name, keyword AS keywords, author, publisher, book_image AS image FROM books",
+        "SELECT book_id, book_name, keyword AS keywords, author, publisher, book_image AS image FROM books",
     ]
 
     with engine.begin() as conn:
@@ -31,7 +31,7 @@ def fetch_books():
             try:
                 rows = conn.execute(text(sql)).mappings().all()
                 return [(int(r["book_id"]), r["book_name"], r["keywords"], 
-                        r.get("author", ""), r.get("publisher", "")) for r in rows]
+                        r.get("author", ""), r.get("publisher", ""), r.get("image", "")) for r in rows]
             except Exception as e:
                 last_err = e
                 continue

@@ -14,6 +14,7 @@ class BertRecommender:
         self.book_keywords: Dict[int, str] = {}
         self.book_authors: Dict[int, str] = {}
         self.book_publishers: Dict[int, str] = {}
+        self.book_images: Dict[int, str] = {}
         self.book_reviews: Dict[int, str] = {}
         
         # 임베딩 저장
@@ -72,13 +73,21 @@ class BertRecommender:
     def build_keyword_embeddings(self, records: List[Tuple]):
         """키워드만 사용한 임베딩 구축"""
         with self._lock:
-            # 튜플 형식 확인 (3개 또는 5개 요소)
-            if records and len(records[0]) == 5:
+            # 튜플 형식 확인 (6개 요소 - image 추가)
+            if records and len(records[0]) == 6:
+                self.book_ids = [int(bid) for bid, _, _, _, _, _ in records]
+                self.book_names = {int(bid): name for bid, name, _, _, _, _ in records}
+                self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw, _, _, _ in records}
+                self.book_authors = {int(bid): author for bid, _, _, author, _, _ in records}
+                self.book_publishers = {int(bid): publisher for bid, _, _, _, publisher, _ in records}
+                self.book_images = {int(bid): image for bid, _, _, _, _, image in records}
+            elif records and len(records[0]) == 5:
                 self.book_ids = [int(bid) for bid, _, _, _, _ in records]
                 self.book_names = {int(bid): name for bid, name, _, _, _ in records}
                 self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw, _, _ in records}
                 self.book_authors = {int(bid): author for bid, _, _, author, _ in records}
                 self.book_publishers = {int(bid): publisher for bid, _, _, _, publisher in records}
+                self.book_images = {}
             else:
                 # 이전 형식 호환성 (3개 요소)
                 self.book_ids = [int(bid) for bid, _, _ in records]
@@ -86,6 +95,7 @@ class BertRecommender:
                 self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw in records}
                 self.book_authors = {}
                 self.book_publishers = {}
+                self.book_images = {}
             
             if len(records) == 0:
                 self.keyword_embeddings = None
@@ -113,19 +123,28 @@ class BertRecommender:
                                  review_records: List[Tuple[int, str]]):
         """키워드 + 리뷰 결합 임베딩 구축"""
         with self._lock:
-            # 기본 정보 저장 - 튜플 형식 확인
-            if book_records and len(book_records[0]) == 5:
+            # 기본 정보 저장 - 튜플 형식 확인 (6개 요소 - image 추가)
+            if book_records and len(book_records[0]) == 6:
+                self.book_ids = [int(bid) for bid, _, _, _, _, _ in book_records]
+                self.book_names = {int(bid): name for bid, name, _, _, _, _ in book_records}
+                self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw, _, _, _ in book_records}
+                self.book_authors = {int(bid): author for bid, _, _, author, _, _ in book_records}
+                self.book_publishers = {int(bid): publisher for bid, _, _, _, publisher, _ in book_records}
+                self.book_images = {int(bid): image for bid, _, _, _, _, image in book_records}
+            elif book_records and len(book_records[0]) == 5:
                 self.book_ids = [int(bid) for bid, _, _, _, _ in book_records]
                 self.book_names = {int(bid): name for bid, name, _, _, _ in book_records}
                 self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw, _, _ in book_records}
                 self.book_authors = {int(bid): author for bid, _, _, author, _ in book_records}
                 self.book_publishers = {int(bid): publisher for bid, _, _, _, publisher in book_records}
+                self.book_images = {}
             else:
                 self.book_ids = [int(bid) for bid, _, _ in book_records]
                 self.book_names = {int(bid): name for bid, name, _ in book_records}
                 self.book_keywords = {int(bid): self.parse_keywords(kw) for bid, _, kw in book_records}
                 self.book_authors = {}
                 self.book_publishers = {}
+                self.book_images = {}
             
             # 리뷰 정보 저장 (review_records: [(book_id, review_json)])
             review_dict = {int(bid): self.parse_reviews(review) for bid, review in review_records}
@@ -194,6 +213,7 @@ class BertRecommender:
                     "book_name": self.book_names.get(bid, ""),
                     "author": self.book_authors.get(bid, ""),
                     "publisher": self.book_publishers.get(bid, ""),
+                    "image": self.book_images.get(bid, ""),
                     "keywords": self.book_keywords.get(bid, ""),
                     "similarity_score": round(score, 4),
                     "method": "keyword_only"
@@ -233,6 +253,7 @@ class BertRecommender:
                     "book_name": self.book_names.get(bid, ""),
                     "author": self.book_authors.get(bid, ""),
                     "publisher": self.book_publishers.get(bid, ""),
+                    "image": self.book_images.get(bid, ""),
                     "keywords": self.book_keywords.get(bid, ""),
                     "review_preview": review_preview,
                     "similarity_score": round(score, 4),
@@ -267,10 +288,11 @@ class BertRecommender:
                 bid = int(self.book_ids[i])
                 result = {
                     "book_id": bid,
-                    "book_name": self.book_names.get(bid, ""),
-                    "author": self.book_authors.get(bid, ""),
-                    "publisher": self.book_publishers.get(bid, ""),
-                    "keywords": self.book_keywords.get(bid, ""),
+                    "book_name": self.book_names.get(bid, "") or "",
+                    "author": self.book_authors.get(bid, "") or "",
+                    "publisher": self.book_publishers.get(bid, "") or "",
+                    "image": self.book_images.get(bid, "") or "",
+                    "keywords": self.book_keywords.get(bid, "") or "",
                     "similarity_score": round(score, 4),
                     "method": "text_search"
                 }
@@ -328,6 +350,7 @@ class BertRecommender:
                     "book_name": self.book_names.get(bid, ""),
                     "author": self.book_authors.get(bid, ""),
                     "publisher": self.book_publishers.get(bid, ""),
+                    "image": self.book_images.get(bid, ""),
                     "keywords": self.book_keywords.get(bid, ""),
                     "similarity_score": round(score, 4),
                     "method": "keyword_multi"
@@ -382,6 +405,7 @@ class BertRecommender:
                     "book_name": self.book_names.get(bid, ""),
                     "author": self.book_authors.get(bid, ""),
                     "publisher": self.book_publishers.get(bid, ""),
+                    "image": self.book_images.get(bid, ""),
                     "keywords": self.book_keywords.get(bid, ""),
                     "review_preview": review_preview,
                     "similarity_score": round(score, 4),
