@@ -152,6 +152,15 @@ class TfidfRecommender:
                 'author': self.book_authors.get(book_id, ''),
                 'publisher': self.book_publishers.get(book_id, '')
             }
+
+            # 추천하는 책과 관련있는 유저가 고른 키워드
+            related_keywords = []
+            if user_preference_keywords:
+                for kw in user_preference_keywords:
+                    if self.book_keywords.get(book_id) and kw in self.book_keywords[book_id]:
+                        related_keywords.append(kw)
+            related_keywords = related_keywords[:2]  # 최대 2개
+            book_info['related_user_keywords'] = related_keywords
             
             recommended_books_with_scores.append((book_info, score, review_keywords))
         
